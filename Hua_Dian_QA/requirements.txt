@@ -1,0 +1,14 @@
+langchain
+langchain-community
+langchain-core
+langchain-ollama
+chromadb
+sentence-transformers
+tqdm
+PyMuPDF
+gradio
+docx2txt
+python-docx
+unstructured
+fastapi
+uvicorn
