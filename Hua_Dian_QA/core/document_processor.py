@@ -12,7 +12,7 @@ def ensure_docs_directory_exists(docs_path):
         os.makedirs(docs_path)
     return os.path.exists(docs_path) and any(fname.endswith(('.txt', '.pdf', '.docx')) for fname in os.listdir(docs_path))
 
-def load_documents_with_error_handling(path):
+def load_documents_with_error_handling(path, file_paths=None):
     logger.info(f"开始从目录 {path} 加载文档...")
     start_time = time.time()
     
@@ -22,10 +22,11 @@ def load_documents_with_error_handling(path):
     }
     
     all_docs = []
-    file_paths = []
-    file_paths.extend(glob.glob(f"{path}/**/*.txt", recursive=True))
-    file_paths.extend(glob.glob(f"{path}/**/*.pdf", recursive=True))
-    file_paths.extend(glob.glob(f"{path}/**/*.docx", recursive=True))
+    if file_paths is None:
+        file_paths = []
+        file_paths.extend(glob.glob(f"{path}/**/*.txt", recursive=True))
+        file_paths.extend(glob.glob(f"{path}/**/*.pdf", recursive=True))
+        file_paths.extend(glob.glob(f"{path}/**/*.docx", recursive=True))
 
     for file_path in file_paths:
         _, ext = os.path.splitext(file_path)

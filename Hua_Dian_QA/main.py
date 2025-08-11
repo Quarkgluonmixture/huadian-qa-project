@@ -44,6 +44,8 @@ def setup_logging():
     logger.info("Logging setup complete.")
     return logger
 
+from webapp.app import WebApp
+
 def main():
     parser = argparse.ArgumentParser(description="Huadian QA Application")
     parser.add_argument("mode", nargs='?', default="webapp", choices=["api", "webapp"], help="Mode to run the application in (defaults to webapp).")
@@ -54,10 +56,11 @@ def main():
     if args.mode == "api":
         import uvicorn
         from api.routes import app
+        # Here you might want to initialize and pass the app state to the api
         uvicorn.run(app, host="0.0.0.0", port=8000)
     elif args.mode == "webapp":
-        from webapp.app import demo
-        demo.launch(server_name="127.0.0.1", share=True)
+        app = WebApp()
+        app.launch()
 
 if __name__ == "__main__":
     main()
