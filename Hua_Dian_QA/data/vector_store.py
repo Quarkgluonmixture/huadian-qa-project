@@ -14,7 +14,11 @@ class VectorStore:
     def __init__(self, persist_directory=VECTORSTORE_PATH, embedding_model_name=EMBEDDING_MODEL):
         self.persist_directory = persist_directory
         self.embedding_model_name = embedding_model_name
-        self.embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model_name)
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=self.embedding_model_name,
+            model_kwargs={'device': 'cuda'},
+            encode_kwargs={'normalize_embeddings': True}
+        )
         self.vector_store = None
 
     def load_documents(self, doc_path=DOCS_PATH):

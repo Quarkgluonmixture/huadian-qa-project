@@ -8,7 +8,7 @@ class LLMManager:
     def __init__(self, retriever, model_name=LLM_MODEL):
         self.retriever = retriever
         self.model_name = model_name
-        self.llm = Ollama(model=self.model_name)
+        self.llm = Ollama(model=self.model_name, num_gpu=1)
         self.rag_chain = self._create_rag_chain()
 
     def _create_rag_chain(self):
