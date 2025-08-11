@@ -22,3 +22,4 @@ unstructured
 fastapi
 uvicorn
 langchain-ollama
+requests

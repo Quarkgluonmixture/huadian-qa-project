@@ -2,5 +2,8 @@
     "git.ignoreLimitWarning": true,
     "markdownlint.ignore": [
         "**/config"
-    ]
+    ],
+    "markdownlint.config": {
+        "MD001": false
+    }
 }
