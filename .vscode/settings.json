@@ -4,6 +4,7 @@
         "**/config"
     ],
     "markdownlint.config": {
-        "MD001": false
-    }
+        "MD001": false,
+        "MD030": false
+    },
 }
