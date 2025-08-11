@@ -3,6 +3,7 @@ import os
 import logging
 import requests
 import time
+from functools import partial
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,13 @@ class WebApp:
 
         # Prepare chat history for the API
         api_history = []
-        for user_msg, ai_msg in history:
-            api_history.append((user_msg, ai_msg))
+        # The history is a flat list of dicts: [{"role": "user", ...}, {"role": "assistant", ...}]
+        # We need to convert it to a list of tuples for the API.
+        for i in range(0, len(history), 2):
+            if i + 1 < len(history):
+                user_msg = history[i]["content"]
+                ai_msg = history[i+1]["content"]
+                api_history.append((user_msg, ai_msg))
 
         try:
             response = requests.post(
@@ -71,7 +77,15 @@ class WebApp:
             return f"知识库更新请求失败: {e}"
 
     def launch(self):
-        with gr.Blocks(theme=gr.themes.Soft()) as demo:
+        custom_css = """
+        .card {
+            border: 1px solid #E5E7EB; /* A light gray border */
+            border-radius: 8px;       /* Rounded corners */
+            padding: 16px;            /* Some padding inside the box */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05); /* A subtle shadow */
+        }
+        """
+        with gr.Blocks(theme=gr.themes.Soft(), css=custom_css) as demo:
             gr.Markdown("# 华电问答机器人")
 
             # Initial API status check
@@ -92,47 +106,17 @@ class WebApp:
                 clear.click(lambda: ([], ""), None, [chatbot, msg], queue=False)
 
             with gr.Tab("知识库管理") as kb_tab:
-                with gr.Blocks():
-                    gr.Markdown("## 知识库更新")
-                    update_status = gr.Textbox(label="更新状态", interactive=False)
-                    
-                    with gr.Row():
-                        update_btn = gr.Button("增量更新知识库")
-                        force_rebuild_btn = gr.Button("强制重建知识库")
-
-                    update_btn.click(
-                        lambda: self.update_knowledge_base(force_rebuild=False),
-                        outputs=update_status
-                    )
-                    force_rebuild_btn.click(
-                        lambda: self.update_knowledge_base(force_rebuild=True),
-                        outputs=update_status
-                    )
-
-                gr.Markdown("---")
-                gr.Markdown("## 文档管理")
-
-                file_manager_status = gr.Textbox(label="文件操作状态", interactive=False)
-
-                with gr.Row():
-                    file_list_checkbox = gr.CheckboxGroup(label="文档列表", info="选择要删除的文件")
-                    refresh_files_btn = gr.Button("🔄 刷新")
-
-                with gr.Row():
-                    upload_button = gr.UploadButton("上传文件", file_count="multiple")
-                    delete_button = gr.Button("🗑️ 删除选中文件")
-
                 # Helper functions for API calls
                 def refresh_file_list():
                     try:
                         response = requests.get(f"{API_URL}/files")
                         response.raise_for_status()
                         files = response.json()
-                        return gr.CheckboxGroup(choices=files, value=[], label="文档列表", info="选择要删除的文件")
+                        return gr.CheckboxGroup(choices=files, value=[], label="知识库文档列表", info="选择文件进行操作")
                     except requests.exceptions.RequestException as e:
                         logger.error(f"获取文件列表失败: {e}")
                         gr.Warning(f"获取文件列表失败: {e}")
-                        return gr.CheckboxGroup(choices=[], label="文档列表", info="选择要删除的文件")
+                        return gr.CheckboxGroup(choices=[], label="知识库文档列表", info="选择文件进行操作")
 
                 def handle_upload_files(files, progress=gr.Progress()):
                     progress(0, desc="开始上传...")
@@ -146,13 +130,12 @@ class WebApp:
                         logger.error(f"上传文件失败: {e}")
                         return f"上传文件失败: {e}"
                     finally:
-                        # Close the files
                         for _, (_, f) in upload_files:
                             f.close()
 
-
                 def handle_delete_files(filenames, progress=gr.Progress()):
                     if not filenames:
+                        gr.Warning("请先选择要删除的文件！")
                         return "未选择任何文件"
                     progress(0, desc="正在删除...")
                     try:
@@ -164,7 +147,70 @@ class WebApp:
                         logger.error(f"删除文件失败: {e}")
                         return f"删除文件失败: {e}"
 
-                # Component interactions
+                with gr.Column():
+                    gr.Markdown("### 📄 文档管理")
+                    with gr.Group(elem_classes="card"):
+                        file_manager_status = gr.Textbox(label="文件操作状态", interactive=False, lines=1, placeholder="这里将显示文件操作的结果...")
+                        with gr.Row(equal_height=True):
+                            with gr.Column(scale=3):
+                                file_list_checkbox = gr.CheckboxGroup(label="知识库文档列表", info="选择文件进行操作")
+                            with gr.Column(scale=1, min_width=120):
+                                refresh_files_btn = gr.Button("🔄 刷新列表")
+                        with gr.Row():
+                            upload_button = gr.UploadButton("📤 上传文件", file_count="multiple", variant="primary")
+                            delete_button = gr.Button("🗑️ 删除选中", variant="stop")
+                
+                with gr.Column():
+                    gr.Markdown("### ⚙️ 知识库更新")
+                    with gr.Group(elem_classes="card"):
+                        gr.Markdown("对知识库进行增量更新或强制重建。**注意：** 此操作可能需要较长时间，请耐心等待。")
+                        update_status = gr.Textbox(label="更新状态", interactive=False, lines=1, placeholder="这里将显示知识库更新的结果...")
+                        with gr.Row():
+                            update_btn = gr.Button("🔄 增量更新")
+                            force_rebuild_btn = gr.Button("💥 强制重建", variant="stop")
+                        
+                        # Hidden textbox to act as a timer/poller
+                        kb_status_poller = gr.Textbox(visible=False)
+
+                # --- Helper function for blocking KB status polling ---
+                def start_and_poll_kb_update(force_rebuild):
+                    # Step 1: Trigger the update.
+                    initial_message = self.update_knowledge_base(force_rebuild=force_rebuild)
+                    yield initial_message
+                    
+                    # Step 2: Poll for the result in a loop.
+                    while True:
+                        try:
+                            response = requests.get(f"{API_URL}/kb/status")
+                            response.raise_for_status()
+                            status_data = response.json()
+                            status = status_data.get("status", "idle")
+                            message = status_data.get("message", "")
+                            
+                            if status != "running":
+                                yield message
+                                break # Exit the loop
+                            
+                            # Update the status and wait before the next poll
+                            yield message
+                            time.sleep(2)
+
+                        except requests.RequestException as e:
+                            error_msg = f"无法获取更新状态: {e}"
+                            logger.error(f"KB status poll failed: {e}")
+                            yield error_msg
+                            break # Exit the loop on error
+
+                # --- Component interactions ---
+                update_btn.click(
+                    partial(start_and_poll_kb_update, force_rebuild=False),
+                    outputs=update_status
+                )
+                force_rebuild_btn.click(
+                    partial(start_and_poll_kb_update, force_rebuild=True),
+                    outputs=update_status
+                )
+                
                 kb_tab.select(refresh_file_list, None, file_list_checkbox)
                 refresh_files_btn.click(refresh_file_list, None, file_list_checkbox)
                 

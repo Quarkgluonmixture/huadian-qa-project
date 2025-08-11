@@ -29,15 +29,17 @@ just reformulate it if needed and otherwise return it as is."""
         )
 
         qa_system_prompt = """
+### Instructions
+1.  You are an intelligent assistant. Your task is to answer questions based on the provided **Context**.
+2.  Analyze the **Context** thoroughly. Your answer should be comprehensive, coherent, and primarily based on the information within the **Context**.
+3.  If the **Context** directly answers the question, synthesize the information and present it clearly.
+4.  If the **Context** does not contain a direct answer, but contains related information, you can infer an answer, but you **must** state that you are inferring and explain your reasoning based on the provided information.
+5.  If the **Context** is completely irrelevant to the question, you **must** respond with: "根据提供的文档，我无法回答您的问题。"
+6.  When possible, quote relevant snippets from the **Context** to support your answer.
+7.  Your response must be in Chinese.
+
 ### Context
 {context}
-
-### Instructions
-1.  You are a specialized assistant for answering questions based on the provided **Context**.
-2.  Synthesize a comprehensive and coherent answer from the **Context**.
-3.  **Do not** use any of your own knowledge or any information outside of the **Context**.
-4.  If the **Context** does not contain the answer, you **must** respond with the exact phrase: "根据提供的文档，我无法回答您的问题。"
-5.  Your response should be in Chinese.
 """
         qa_prompt = ChatPromptTemplate.from_messages(
             [

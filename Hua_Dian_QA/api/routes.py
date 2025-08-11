@@ -11,6 +11,12 @@ from Hua_Dian_QA.core.config import DOCS_PATH
 app = FastAPI()
 logger = logging.getLogger(__name__)
 
+# --- Global State for Background Task ---
+# In a production environment, use a more robust state management solution like Redis or a database.
+# For this project, a simple dictionary is sufficient.
+background_task_status = {"status": "idle", "message": "No tasks running."}
+# ---
+
 def initialize_rag_components():
     """Initializes or re-initializes the RAG components."""
     logger.info("Initializing RAG components...")
@@ -133,13 +139,16 @@ def delete_files(request: DeleteFilesRequest):
     return {"message": f"Successfully deleted {len(deleted_files)} files.", "deleted_files": deleted_files}
 
 def update_knowledge_base_task(force_rebuild: bool):
-    """Task to update the knowledge base and reload RAG components."""
+    """Task to update the knowledge base and reload RAG components, with status tracking."""
+    global background_task_status
     logger.info(f"Starting knowledge base update (force_rebuild={force_rebuild})...")
+    background_task_status = {"status": "running", "message": "知识库更新中，请稍候..."}
+    
     try:
-        # Use the existing vector_store instance from app.state if available
         vs = app.state.vector_store
         if not vs:
-            vs = VectorStore() # Or handle error
+            # This case should ideally not happen if startup is successful
+            vs = VectorStore()
         
         vs.build_or_update(force_rebuild=force_rebuild)
         logger.info("Knowledge base update finished. Reloading RAG components.")
@@ -148,20 +157,35 @@ def update_knowledge_base_task(force_rebuild: bool):
         initialize_rag_components()
         logger.info("RAG components reloaded successfully after update.")
         
+        background_task_status = {"status": "success", "message": "知识库更新成功！"}
+        
     except Exception as e:
-        logger.error(f"Failed to update knowledge base: {e}", exc_info=True)
+        error_message = f"知识库更新失败: {e}"
+        logger.error(error_message, exc_info=True)
+        background_task_status = {"status": "failed", "message": error_message}
 
 @app.post("/kb/update")
 async def update_kb(background_tasks: BackgroundTasks):
     """Triggers an incremental update of the knowledge base in the background."""
+    global background_task_status
+    if background_task_status["status"] == "running":
+        raise HTTPException(status_code=409, detail="一个更新任务已经在运行中。")
     background_tasks.add_task(update_knowledge_base_task, force_rebuild=False)
     return {"message": "知识库增量更新已开始，请稍后查看状态。"}
 
 @app.post("/kb/rebuild")
 async def rebuild_kb(background_tasks: BackgroundTasks):
     """Triggers a full rebuild of the knowledge base in the background."""
+    global background_task_status
+    if background_task_status["status"] == "running":
+        raise HTTPException(status_code=409, detail="一个更新任务已经在运行中。")
     background_tasks.add_task(update_knowledge_base_task, force_rebuild=True)
     return {"message": "知识库强制重建已开始，请稍后查看状态。"}
+
+@app.get("/kb/status")
+def get_kb_status():
+    """Gets the status of the current knowledge base update task."""
+    return background_task_status
 
 if __name__ == "__main__":
     import uvicorn

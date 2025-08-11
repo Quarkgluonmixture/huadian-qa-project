@@ -22,4 +22,7 @@ unstructured
 fastapi
 uvicorn
 langchain-ollama
-requests
+requestsunstructured
+python-docx
+unstructured
+python-docx

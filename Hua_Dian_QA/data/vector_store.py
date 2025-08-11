@@ -115,7 +115,7 @@ class VectorStore:
         logger.info(f"Creating new table '{self.table_name}' with {len(chunks)} chunks.")
         texts = [c.page_content for c in chunks]
         metadata = [c.metadata for c in chunks]
-        embeddings = self.embedding_model.encode(texts, batch_size=128, device='cuda', show_progress_bar=True)
+        embeddings = self.embedding_model.encode(texts, batch_size=128, device='cuda')
         data = pd.DataFrame({'text': texts, 'metadata': metadata, 'vector': [e.tolist() for e in embeddings]})
         self.table = self.db.create_table(self.table_name, data, mode="overwrite")
 
@@ -123,7 +123,7 @@ class VectorStore:
         logger.info(f"Adding {len(chunks)} new chunks to table '{self.table_name}'.")
         texts = [c.page_content for c in chunks]
         metadata = [c.metadata for c in chunks]
-        embeddings = self.embedding_model.encode(texts, batch_size=128, device='cuda', show_progress_bar=True)
+        embeddings = self.embedding_model.encode(texts, batch_size=128, device='cuda')
         data = pd.DataFrame({'text': texts, 'metadata': metadata, 'vector': [e.tolist() for e in embeddings]})
         self.table.add(data)
 
