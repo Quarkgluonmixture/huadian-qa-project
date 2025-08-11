@@ -1,4 +1,4 @@
-from langchain_community.llms import Ollama
+from langchain_ollama import OllamaLLM as Ollama
 from langchain.chains import create_retrieval_chain, create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -8,7 +8,7 @@ class LLMManager:
     def __init__(self, retriever, model_name=LLM_MODEL):
         self.retriever = retriever
         self.model_name = model_name
-        self.llm = Ollama(model=self.model_name, num_gpu=1)
+        self.llm = Ollama(model=self.model_name, num_gpu=1, temperature=0)
         self.rag_chain = self._create_rag_chain()
 
     def _create_rag_chain(self):
@@ -33,11 +33,11 @@ just reformulate it if needed and otherwise return it as is."""
 {context}
 
 ### Instructions
-1.  You are a specialized assistant for answering questions based **only** on the provided **Context**.
-2.  Your answer **must be** directly extracted from the **Context**.
+1.  You are a specialized assistant for answering questions based on the provided **Context**.
+2.  Synthesize a comprehensive and coherent answer from the **Context**.
 3.  **Do not** use any of your own knowledge or any information outside of the **Context**.
 4.  If the **Context** does not contain the answer, you **must** respond with the exact phrase: "根据提供的文档，我无法回答您的问题。"
-5.  Keep your answer concise and professional.
+5.  Your response should be in Chinese.
 """
         qa_prompt = ChatPromptTemplate.from_messages(
             [

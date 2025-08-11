@@ -39,7 +39,7 @@ def init_rag(force_rebuild=False):
     global llm_manager
     logger.info("Initializing RAG engine...")
     vs = VectorStore()
-    if force_rebuild or not os.path.exists(vs.persist_directory) or not os.listdir(vs.persist_directory):
+    if force_rebuild or not vs.table_exists():
         logger.info("Rebuilding vector store...")
         documents = vs.load_documents()
         vs.vector_store = vs.create_vector_store(documents)

@@ -24,7 +24,13 @@ def ask_question(question: Question):
         chat_history.append({"role": "assistant", "content": ai_msg})
         
     answer = llm_manager.answer_question(question.text, chat_history)
-    return {"answer": answer["answer"], "source_documents": answer["context"]}
+    # Return both the answer and the retrieved context for debugging
+    retrieved_docs = [doc.page_content for doc in answer["context"]]
+    return {
+        "answer": answer["answer"],
+        "source_documents": answer["context"],
+        "retrieved_context": retrieved_docs
+    }
 
 if __name__ == "__main__":
     import uvicorn

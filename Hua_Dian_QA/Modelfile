@@ -1,0 +1,8 @@
+# Use the official deepseek-llm model as the base
+FROM deepseek-llm
+
+# Set model parameters
+# Force as many layers as possible to the GPU. 99 is a common value for "all".
+PARAMETER num_gpu 99
+# Set the temperature to 0 for deterministic, consistent outputs.
+PARAMETER temperature 0

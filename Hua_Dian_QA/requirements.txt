@@ -1,14 +1,24 @@
+# For GPU acceleration, please install the correct PyTorch version for your system first.
+# Visit https://pytorch.org/get-started/locally/
+# Example for CUDA 12.1:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
 langchain
 langchain-community
 langchain-core
 langchain-ollama
-chromadb
+langchain-huggingface
 sentence-transformers
+lancedb
+pylance
+pyarrow
+pytorch-lightning
 tqdm
 PyMuPDF
 gradio
-docx2txt
+lxml
 python-docx
 unstructured
 fastapi
 uvicorn
+langchain-ollama
