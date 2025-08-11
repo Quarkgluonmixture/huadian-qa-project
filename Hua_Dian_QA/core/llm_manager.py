@@ -55,4 +55,11 @@ just reformulate it if needed and otherwise return it as is."""
 
     def answer_question(self, question, chat_history):
         """Answers a question using the RAG chain."""
-        return self.rag_chain.invoke({"input": question, "chat_history": chat_history})
+        result = self.rag_chain.invoke({"input": question, "chat_history": chat_history})
+        
+        # If the answer indicates that the question could not be answered,
+        # clear the context to avoid showing irrelevant source documents.
+        if "我无法回答您的问题" in result.get("answer", ""):
+            result["context"] = []
+            
+        return result
