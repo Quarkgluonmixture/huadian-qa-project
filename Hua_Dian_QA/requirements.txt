@@ -3,6 +3,7 @@
 # Example for CUDA 12.1:
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
+torch
 langchain
 langchain-community
 langchain-core
@@ -21,8 +22,4 @@ python-docx
 unstructured
 fastapi
 uvicorn
-langchain-ollama
-requestsunstructured
-python-docx
-unstructured
-python-docx
+requests

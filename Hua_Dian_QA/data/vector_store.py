@@ -2,6 +2,7 @@ import os
 import time
 import logging
 import lancedb
+import torch
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -22,12 +23,16 @@ class VectorStore:
         self.doc_dir = DOCS_PATH
         self.metadata_file = os.path.join(self.db_path, 'doc_metadata.json')
 
-        logger.info(f"Loading embedding model '{self.embedding_model_name}'...")
+        # Check for CUDA availability and set device
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        logger.info(f"Using device: {self.device.upper()}")
+
+        logger.info(f"Loading embedding model '{self.embedding_model_name}' on {self.device.upper()}...")
         try:
-            self.embedding_model = SentenceTransformer(self.embedding_model_name, device='cuda')
+            self.embedding_model = SentenceTransformer(self.embedding_model_name, device=self.device)
         except Exception as e:
             logger.warning(f"Failed to load model directly, trying with trust_remote_code=True. Error: {e}")
-            self.embedding_model = SentenceTransformer(self.embedding_model_name, device='cuda', trust_remote_code=True)
+            self.embedding_model = SentenceTransformer(self.embedding_model_name, device=self.device, trust_remote_code=True)
 
         logger.info(f"Connecting to LanceDB at {self.db_path}...")
         self.db = lancedb.connect(self.db_path)
@@ -105,7 +110,8 @@ class VectorStore:
         if docs_to_add or docs_to_delete or force_rebuild:
              if self.table:
                 logger.info("Creating index for the table...")
-                self.table.create_index(num_partitions=64, num_sub_vectors=8, accelerator="cuda", replace=True)
+                accelerator = "cuda" if self.device == "cuda" else "cpu"
+                self.table.create_index(num_partitions=64, num_sub_vectors=8, accelerator=accelerator, replace=True)
 
         self._save_doc_metadata(new_metadata)
         logger.info("Knowledge base build or update process finished.")
@@ -115,7 +121,7 @@ class VectorStore:
         logger.info(f"Creating new table '{self.table_name}' with {len(chunks)} chunks.")
         texts = [c.page_content for c in chunks]
         metadata = [c.metadata for c in chunks]
-        embeddings = self.embedding_model.encode(texts, batch_size=128, device='cuda')
+        embeddings = self.embedding_model.encode(texts, batch_size=128, device=self.device)
         data = pd.DataFrame({'text': texts, 'metadata': metadata, 'vector': [e.tolist() for e in embeddings]})
         self.table = self.db.create_table(self.table_name, data, mode="overwrite")
 
@@ -123,7 +129,7 @@ class VectorStore:
         logger.info(f"Adding {len(chunks)} new chunks to table '{self.table_name}'.")
         texts = [c.page_content for c in chunks]
         metadata = [c.metadata for c in chunks]
-        embeddings = self.embedding_model.encode(texts, batch_size=128, device='cuda')
+        embeddings = self.embedding_model.encode(texts, batch_size=128, device=self.device)
         data = pd.DataFrame({'text': texts, 'metadata': metadata, 'vector': [e.tolist() for e in embeddings]})
         self.table.add(data)
 
@@ -137,7 +143,7 @@ class VectorStore:
 
         def retrieve(query_text):
             logger.info(f"Searching for: '{query_text}'")
-            query_vector = self.embedding_model.encode(query_text, device='cuda')
+            query_vector = self.embedding_model.encode(query_text, device=self.device)
             results = self.table.search(query_vector).limit(k).to_pandas()
             retrieved_docs = [
                 Document(page_content=row["text"], metadata=row["metadata"])
